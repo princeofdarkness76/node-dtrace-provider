@@ -1,6 +1,5 @@
-#include <node.h>
+#include <nan.h>
 #include <node_object_wrap.h>
-#include <v8.h>
 
 extern "C" {
 #include <usdt.h>
@@ -24,53 +23,78 @@ namespace node {
 
   using namespace v8;
 
-  class DTraceProbe : ObjectWrap {
+  class DTraceArgument {
+  public:
+    virtual const char *Type() = 0;
+    virtual void *ArgumentValue(v8::Local<Value>) = 0;
+    virtual void FreeArgument(void *) = 0;
+    virtual ~DTraceArgument() { };
+  };
+
+  class DTraceIntegerArgument : public DTraceArgument {
+  public:
+    const char *Type();
+    void *ArgumentValue(v8::Local<Value>);
+    void FreeArgument(void *);
+  };
+
+  class DTraceStringArgument : public DTraceArgument {
+  public:
+    const char *Type();
+    void *ArgumentValue(v8::Local<Value>);
+    void FreeArgument(void *);
+  };
+
+  class DTraceJsonArgument : public DTraceArgument {
+  public:
+    const char *Type();
+    void *ArgumentValue(v8::Local<Value>);
+    void FreeArgument(void *);
+    DTraceJsonArgument();
+    ~DTraceJsonArgument();
+  private:
+    Nan::Persistent<Object> JSON;
+    Nan::Persistent<Function> JSON_stringify;
+  };
+
+  class DTraceProbe : public Nan::ObjectWrap {
 
   public:
-    static void Initialize(v8::Handle<v8::Object> target);
+    static void Initialize(v8::Local<v8::Object> target);
     usdt_probedef_t *probedef;
+    size_t argc;
+    DTraceArgument *arguments[USDT_ARG_MAX];
 
-    static v8::Handle<v8::Value> New(const v8::Arguments& args);
-    static v8::Handle<v8::Value> Fire(const v8::Arguments& args);
+    static NAN_METHOD(New);
+    static NAN_METHOD(Fire);
 
-    Handle<Value> _fire(v8::Local<v8::Value>);
+    v8::Local<Value> _fire(v8::Local<v8::Value>);
 
-    static Persistent<FunctionTemplate> constructor_template;
+    static Nan::Persistent<FunctionTemplate> constructor_template;
 
-    DTraceProbe() : ObjectWrap() {
-      probedef = NULL;
-    }
-
-    ~DTraceProbe() {
-    }
-
+    DTraceProbe();
+    ~DTraceProbe();
   private:
   };
 
-  class DTraceProvider : ObjectWrap {
+  class DTraceProvider : public Nan::ObjectWrap {
 
   public:
-    static void Initialize(v8::Handle<v8::Object> target);
+    static void Initialize(v8::Local<v8::Object> target);
     usdt_provider_t *provider;
 
-    static v8::Handle<v8::Value> New(const v8::Arguments& args);
-    static v8::Handle<v8::Value> AddProbe(const v8::Arguments& args);
-    static v8::Handle<v8::Value> RemoveProbe(const v8::Arguments& args);
-    static v8::Handle<v8::Value> Enable(const v8::Arguments& args);
-    static v8::Handle<v8::Value> Disable(const v8::Arguments& args);
-    static v8::Handle<v8::Value> Fire(const v8::Arguments& args);
+    static NAN_METHOD(New);
+    static NAN_METHOD(AddProbe);
+    static NAN_METHOD(RemoveProbe);
+    static NAN_METHOD(Enable);
+    static NAN_METHOD(Disable);
+    static NAN_METHOD(Fire);
 
-    DTraceProvider() : ObjectWrap() {
-      provider = NULL;
-    }
-
-    ~DTraceProvider() {
-      usdt_provider_disable(provider);
-    }
-
+    DTraceProvider();
+    ~DTraceProvider();
   private:
-    static Persistent<FunctionTemplate> constructor_template;
+    static Nan::Persistent<FunctionTemplate> constructor_template;
   };
 
-  void InitDTraceProvider(v8::Handle<v8::Object> target);
+  void InitDTraceProvider(v8::Local<v8::Object> target);
 }
